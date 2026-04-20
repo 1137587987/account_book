@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import os
+import sys
 
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
@@ -46,3 +48,34 @@ app.include_router(feishu_router)
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+async def _debug_loop() -> None:
+    await init_db()
+    print("本地调试模式 — 输入消息模拟飞书对话，exit 退出\n")
+    while True:
+        try:
+            text = input("你：").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n退出")
+            break
+        if not text:
+            continue
+        if text.lower() == "exit":
+            break
+        async with AsyncSessionLocal() as session:
+            reply = await handle_message(session, "local_user", text)
+        print(f"Bot：{reply}\n")
+
+
+if __name__ == "__main__":
+    # 飞书配置本地调试时不需要，用占位值避免 pydantic 报错
+    os.environ.setdefault("FEISHU_APP_ID", "debug")
+    os.environ.setdefault("FEISHU_APP_SECRET", "debug")
+    os.environ.setdefault("FEISHU_VERIFICATION_TOKEN", "debug")
+
+    if "--server" in sys.argv:
+        import uvicorn
+        uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    else:
+        asyncio.run(_debug_loop())
