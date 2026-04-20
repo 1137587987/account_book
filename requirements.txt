@@ -1,0 +1,11 @@
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+sqlalchemy[asyncio]==2.0.36
+aiosqlite==0.20.0
+lark-oapi==1.3.4
+openai==1.57.0
+apscheduler==3.10.4
+yagmail==0.15.293
+pydantic-settings==2.6.1
+pytest==8.3.4
+pytest-asyncio==0.24.0
