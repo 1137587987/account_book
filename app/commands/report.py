@@ -71,25 +71,32 @@ async def generate_monthly_report(
 
 
 async def send_monthly_report_to_all(session: AsyncSession, year: int, month: int) -> None:
+    from app.config import settings
+
     result = await session.execute(
         select(UserAccount).where(UserAccount.platform == "feishu")
     )
     accounts = result.scalars().all()
 
-    from app.config import settings
     for account in accounts:
         report = await generate_monthly_report(session, account.user_id, year, month)
         await send_text(account.platform_user_id, report)
-        if settings.email_recipient_list:
-            _send_email_report(settings, year, month, report)
+
+        # 发给用户自己绑定的邮箱
+        user_result = await session.execute(select(User).where(User.id == account.user_id))
+        user = user_result.scalar_one()
+        if user.email and settings.EMAIL_SENDER and settings.EMAIL_PASSWORD:
+            _send_email_report(settings, year, month, report, recipient=user.email)
 
 
-def _send_email_report(settings, year: int, month: int, content: str) -> None:
+def _send_email_report(settings, year: int, month: int, content: str, recipient: str) -> None:
     try:
         import yagmail
-        yag = yagmail.SMTP(settings.EMAIL_SENDER, settings.EMAIL_PASSWORD)
+        sender = settings.EMAIL_SENDER
+        host = "smtp.qq.com" if sender.endswith("@qq.com") else "smtp.gmail.com"
+        yag = yagmail.SMTP(sender, settings.EMAIL_PASSWORD, host=host, port=465)
         yag.send(
-            to=settings.email_recipient_list,
+            to=recipient,
             subject=f"记账月报 {year}年{month}月",
             contents=content,
         )

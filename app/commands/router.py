@@ -8,12 +8,17 @@ from app.commands.query import (
     add_transaction, get_or_create_user, CATEGORY_EMOJI,
     delete_transaction, modify_transaction,
     set_budget, query_budgets, check_budget_alert, GLOBAL_BUDGET_KEY,
+    set_user_email, get_user_email,
 )
 from app.commands.report import generate_monthly_report
 from app.llm.parser import parse_expense
 
 HELP_TEXT = """\
 记账 Bot 使用指南：
+📧 邮件
+  /邮件 xxx@qq.com → 绑定邮箱，每月自动收月报
+  /邮件            → 查看当前绑定邮箱
+
 
 📝 记账（直接发消息）
   星巴克35
@@ -55,6 +60,10 @@ async def handle_message(session: AsyncSession, open_id: str, text: str) -> str:
         today = date.today()
         user = await get_or_create_user(session, open_id)
         return await generate_monthly_report(session, user.id, today.year, today.month)
+
+    if text.startswith("/邮件") or text.startswith("邮件"):
+        args = re.sub(r"^/邮件|^邮件", "", text).strip()
+        return await _handle_email(session, open_id, args)
 
     if text.startswith("/删除") or text.startswith("删除"):
         return await _handle_delete(session, open_id, re.sub(r"^/删除|^删除", "", text).strip())
@@ -188,3 +197,13 @@ async def _handle_record(session: AsyncSession, open_id: str, text: str) -> str:
             reply += f"\n\n{alert}"
 
     return reply
+
+
+async def _handle_email(session: AsyncSession, open_id: str, args: str) -> str:
+    user = await get_or_create_user(session, open_id)
+    if not args:
+        return await get_user_email(session, user.id)
+    email = args.strip()
+    if "@" not in email or "." not in email.split("@")[-1]:
+        return f"邮箱格式不对：{email}"
+    return await set_user_email(session, user.id, email)

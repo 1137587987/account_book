@@ -57,6 +57,22 @@ async def get_or_create_user(session: AsyncSession, open_id: str) -> User:
     return user
 
 
+async def set_user_email(session: AsyncSession, user_id: int, email: str) -> str:
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one()
+    user.email = email
+    await session.commit()
+    return f"✅ 已绑定邮箱 {email}\n每月1日自动发送月报到该邮箱"
+
+
+async def get_user_email(session: AsyncSession, user_id: int) -> str:
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one()
+    if user.email:
+        return f"📧 当前绑定邮箱：{user.email}\n发送「/邮件 新邮箱」可以修改"
+    return "未绑定邮箱\n发送「/邮件 xxx@qq.com」绑定后可接收月报"
+
+
 async def add_transaction(
     session: AsyncSession,
     user_id: int,

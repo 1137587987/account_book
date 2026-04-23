@@ -2,14 +2,17 @@ import asyncio
 import logging
 import os
 import sys
+from datetime import date
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
 
 from app.database import init_db
 from app.feishu.webhook import router as feishu_router, message_queue, FeishuMessage
 from app.feishu.client import send_text
 from app.commands.router import handle_message
+from app.commands.report import send_monthly_report_to_all
+from app.config import settings
 from app.database import AsyncSessionLocal
 from app.tasks.scheduler import start_scheduler
 
@@ -51,6 +54,21 @@ app.include_router(feishu_router)
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.post("/debug/send-email-report")
+async def debug_send_email_report(year: int = 0, month: int = 0):
+    if not settings.EMAIL_SENDER or not settings.EMAIL_PASSWORD:
+        raise HTTPException(status_code=400, detail="EMAIL_SENDER 或 EMAIL_PASSWORD 未配置")
+
+    today = date.today()
+    y = year or today.year
+    m = month or today.month
+
+    async with AsyncSessionLocal() as session:
+        await send_monthly_report_to_all(session, y, m)
+
+    return {"status": "ok", "report_period": f"{y}年{m}月"}
 
 
 async def _debug_loop() -> None:
