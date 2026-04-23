@@ -1,8 +1,17 @@
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def _find_env_file() -> Path:
+    for directory in [Path(__file__).resolve().parent, *Path(__file__).resolve().parents]:
+        candidate = directory / ".env"
+        if candidate.exists():
+            return candidate
+    return Path(".env")
+
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=_find_env_file(), env_file_encoding="utf-8")
 
     FEISHU_APP_ID: str
     FEISHU_APP_SECRET: str

@@ -52,6 +52,32 @@ async def add_transaction(
     return tx
 
 
+CATEGORY_EMOJI = {
+    "餐饮": "🍜", "购物": "🛍", "日用": "🧻", "交通": "🚇", "蔬菜": "🥦",
+    "水果": "🍎", "零食": "🍿", "运动": "💪", "娱乐": "🎮", "通讯": "📱",
+    "服饰": "👕", "美容": "💄", "住房": "🏠", "居家": "🛋", "孩子": "👶",
+    "长辈": "👴", "社交": "💬", "旅行": "✈️", "烟酒": "🍷", "数码": "💻",
+    "汽车": "🚗", "医疗": "💊", "书籍": "📚", "学习": "🎓", "宠物": "🐶",
+    "礼金": "💴", "礼物": "🎁", "办公": "💼", "维修": "🔧", "捐赠": "❤️",
+    "彩票": "🎰", "亲友": "👫", "快递": "📦", "工资": "💰", "奖金": "🎉",
+    "兼职": "💼", "投资": "📈", "退款": "↩️", "收入": "💰", "其他": "📌",
+}
+
+
+def _fmt_date(d: date) -> str:
+    today = date.today()
+    delta = (today - d).days
+    if delta == 0:
+        return "今天"
+    if delta == 1:
+        return "昨天"
+    if delta == 2:
+        return "前天"
+    if d.year == today.year:
+        return f"{d.month}月{d.day}日"
+    return str(d)
+
+
 async def query_month_summary(
     session: AsyncSession, user_id: int, year: int, month: int
 ) -> str:
@@ -74,16 +100,55 @@ async def query_month_summary(
     if not rows:
         return f"📭 {year}年{month}月暂无记录"
 
-    expense_total = sum(r.total for r in rows if r.total > 0)
-    income_total = abs(sum(r.total for r in rows if r.total < 0))
+    expense_rows = [r for r in rows if r.total > 0]
+    income_rows = [r for r in rows if r.total < 0]
+    expense_total = sum(r.total for r in expense_rows)
+    income_total = abs(sum(r.total for r in income_rows))
+    balance = income_total - expense_total
 
-    lines = [f"📊 {year}年{month}月账单\n"]
-    lines.append(f"支出 ¥{expense_total:.2f}  收入 ¥{income_total:.2f}\n")
+    lines = [f"📊 {year}年{month}月账单"]
+    lines.append(f"支出 ¥{expense_total:.2f}  收入 ¥{income_total:.2f}  结余 {'+'if balance>=0 else ''}¥{balance:.2f}")
+    lines.append("─" * 24)
 
-    for r in rows:
-        sign = "+" if r.total < 0 else "-"
-        lines.append(f"  {r.category}  {sign}¥{abs(r.total):.2f}（{r.cnt}笔）")
+    if expense_rows:
+        for r in expense_rows:
+            emoji = CATEGORY_EMOJI.get(r.category, "📌")
+            pct = r.total / expense_total * 100 if expense_total else 0
+            lines.append(f"{emoji} {r.category}  -¥{r.total:.2f}  {pct:.0f}%（{r.cnt}笔）")
 
+    if income_rows:
+        lines.append("")
+        for r in income_rows:
+            emoji = CATEGORY_EMOJI.get(r.category, "💰")
+            lines.append(f"{emoji} {r.category}  +¥{abs(r.total):.2f}（{r.cnt}笔）")
+
+    return "\n".join(lines)
+
+
+async def query_today(session: AsyncSession, user_id: int) -> str:
+    today = date.today()
+    result = await session.execute(
+        select(Transaction)
+        .where(Transaction.user_id == user_id, Transaction.spent_at == today)
+        .order_by(Transaction.created_at.desc())
+    )
+    txs = result.scalars().all()
+
+    if not txs:
+        return "📭 今天还没有记录"
+
+    expense = sum(tx.amount for tx in txs if tx.amount > 0)
+    income = abs(sum(tx.amount for tx in txs if tx.amount < 0))
+    lines = [f"📅 今日账单  共{len(txs)}笔"]
+    if expense:
+        lines[0] += f"  支出¥{expense:.2f}"
+    if income:
+        lines[0] += f"  收入¥{income:.2f}"
+    lines.append("─" * 24)
+    for tx in txs:
+        emoji = CATEGORY_EMOJI.get(tx.category, "📌")
+        sign = "+" if tx.amount < 0 else "-"
+        lines.append(f"{emoji} {tx.category}  {sign}¥{abs(tx.amount):.2f}  {tx.note}")
     return "\n".join(lines)
 
 
@@ -99,10 +164,10 @@ async def query_recent(session: AsyncSession, user_id: int, limit: int = 10) -> 
     if not txs:
         return "📭 暂无记录"
 
-    lines = ["最近记录：\n"]
+    lines = [f"🕒 最近 {len(txs)} 条记录"]
+    lines.append("─" * 24)
     for tx in txs:
+        emoji = CATEGORY_EMOJI.get(tx.category, "📌")
         sign = "+" if tx.amount < 0 else "-"
-        lines.append(
-            f"  {tx.spent_at}  {tx.category}  {sign}¥{abs(tx.amount):.2f}  {tx.note}"
-        )
+        lines.append(f"{emoji} {_fmt_date(tx.spent_at)}  {tx.category}  {sign}¥{abs(tx.amount):.2f}  {tx.note}")
     return "\n".join(lines)

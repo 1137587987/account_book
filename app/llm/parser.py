@@ -5,7 +5,14 @@ from dataclasses import dataclass
 from app.config import settings
 from app.llm.client import get_llm_client
 
-CATEGORIES = ["餐饮", "交通", "购物", "娱乐", "医疗", "居家", "教育", "收入", "其他"]
+EXPENSE_CATEGORIES = [
+    "餐饮", "购物", "日用", "交通", "蔬菜", "水果", "零食", "运动",
+    "娱乐", "通讯", "服饰", "美容", "住房", "居家", "孩子", "长辈",
+    "社交", "旅行", "烟酒", "数码", "汽车", "医疗", "书籍", "学习",
+    "宠物", "礼金", "礼物", "办公", "维修", "捐赠", "彩票", "亲友", "快递", "其他",
+]
+INCOME_CATEGORIES = ["工资", "奖金", "兼职", "投资", "退款", "收入", "其他"]
+CATEGORIES = EXPENSE_CATEGORIES + INCOME_CATEGORIES
 
 PARSE_PROMPT = """\
 从用户消息中提取消费或收入记录，返回 JSON 对象。

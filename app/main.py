@@ -76,6 +76,7 @@ if __name__ == "__main__":
 
     if "--server" in sys.argv:
         import uvicorn
-        uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+        reload = "--reload" in sys.argv
+        uvicorn.run("app.main:app", host="0.0.0.0", port=7880, reload=reload)
     else:
         asyncio.run(_debug_loop())
