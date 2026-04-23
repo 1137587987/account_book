@@ -27,7 +27,10 @@ async def message_worker() -> None:
             await send_text(msg.open_id, reply)
         except Exception:
             logger.exception("处理消息失败: %s", msg)
-            await send_text(msg.open_id, "出了点问题，请稍后再试 🙏")
+            try:
+                await send_text(msg.open_id, "出了点问题，请稍后再试 🙏")
+            except Exception:
+                logger.exception("回复错误消息失败: %s", msg.open_id)
         finally:
             message_queue.task_done()
 

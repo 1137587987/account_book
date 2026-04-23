@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from collections import deque
 from dataclasses import dataclass
 
 from fastapi import APIRouter, Request
@@ -12,7 +13,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # 已处理的消息 ID，防止飞书重试导致重复处理（内存级别，重启后清空）
+_MAX_DEDUP = 10000
 _processed_ids: set[str] = set()
+_processed_order: deque[str] = deque()
 
 # 消息队列：Webhook 立即入队返回，后台消费处理
 message_queue: asyncio.Queue = asyncio.Queue()
@@ -46,9 +49,11 @@ async def feishu_webhook(request: Request) -> JSONResponse:
     if event_id in _processed_ids:
         return JSONResponse({"code": 0})
     _processed_ids.add(event_id)
-    # 超过 10000 条时清理旧数据，防止内存无限增长
-    if len(_processed_ids) > 10000:
-        _processed_ids.clear()
+    _processed_order.append(event_id)
+    # 超过上限时移除最旧的记录，避免内存无限增长
+    if len(_processed_order) > _MAX_DEDUP:
+        oldest = _processed_order.popleft()
+        _processed_ids.discard(oldest)
 
     if event_type == "im.message.receive_v1":
         event = body.get("event", {})

@@ -42,3 +42,15 @@ class Transaction(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="transactions")
+
+
+class Budget(Base):
+    __tablename__ = "budgets"
+    __table_args__ = (UniqueConstraint("user_id", "category"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    category: Mapped[str] = mapped_column(String(32))
+    amount: Mapped[float] = mapped_column(Numeric(10, 2))  # 月度上限（正数）
+
+    user: Mapped["User"] = relationship()

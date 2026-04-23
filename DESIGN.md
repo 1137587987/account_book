@@ -127,7 +127,7 @@ CREATE TABLE users (
 CREATE TABLE user_accounts (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id          INTEGER REFERENCES users(id),
-    platform         TEXT,           -- 'feishu' | 'wecom'
+    platform         TEXT,           -- 'feishu'
     platform_user_id TEXT,
     UNIQUE(platform, platform_user_id)
 );
@@ -136,25 +136,27 @@ CREATE TABLE user_accounts (
 CREATE TABLE transactions (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id      INTEGER REFERENCES users(id),
-    amount       DECIMAL(10,2) NOT NULL,   -- 正=支出，负=收入
-    category     TEXT,                      -- AI 归类结果
-    note         TEXT,                      -- 原始描述
-    source       TEXT DEFAULT 'manual',     -- 'manual'（MVP 阶段仅手动）
-    external_id  TEXT,                      -- 交易单号，用于去重
+    amount       DECIMAL(10,2) NOT NULL,
+    category     TEXT,
+    note         TEXT,
+    source       TEXT DEFAULT 'manual',
     spent_at     DATE NOT NULL,
-    created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, external_id)            -- 防止重复导入
+    created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 分类表
-CREATE TABLE categories (
-    id    INTEGER PRIMARY KEY AUTOINCREMENT,
-    name  TEXT UNIQUE NOT NULL,
-    icon  TEXT
+-- 月度预算
+CREATE TABLE budgets (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id   INTEGER REFERENCES users(id),
+    category  TEXT NOT NULL,
+    amount    DECIMAL(10,2) NOT NULL,   -- 月度上限（正数）
+    UNIQUE(user_id, category)
 );
 ```
 
-**默认分类：** 餐饮🍜 / 交通🚇 / 购物🛒 / 娱乐🎮 / 医疗🏥 / 居家🏠 / 教育📚 / 收入💰 / 其他📦
+**支出分类（34个）：** 餐饮🍜 / 购物🛍 / 日用🧻 / 交通🚇 / 蔬菜🥦 / 水果🍎 / 零食🍿 / 运动💪 / 娱乐🎮 / 通讯📱 / 服饰👕 / 美容💄 / 住房🏠 / 居家🛋 / 孩子👶 / 长辈👴 / 社交💬 / 旅行✈️ / 烟酒🍷 / 数码💻 / 汽车🚗 / 医疗💊 / 书籍📚 / 学习🎓 / 宠物🐶 / 礼金💴 / 礼物🎁 / 办公💼 / 维修🔧 / 捐赠❤️ / 彩票🎰 / 亲友👫 / 快递📦 / 其他📌
+
+**收入分类：** 工资💰 / 奖金🎉 / 兼职💼 / 投资📈 / 退款↩️ / 收入💰
 
 ---
 
@@ -239,17 +241,42 @@ Bot：✅ 已记录
      2026-04-20 | 工资
 ```
 
-### 2. 查账命令
+### 2. 修改 / 删除
 
 ```
-/查账          → 本月消费汇总
-/查账 本周      → 本周明细
-/查账 餐饮      → 餐饮分类明细
-/查账 3月       → 3月账单
-/帮助           → 命令列表
+/删除 上条            → 删最近一笔
+/删除 3               → 删最近第3条
+/修改 上条 金额 50    → 改金额
+/修改 上条 分类 交通  → 改分类
+/修改 上条 备注 打车  → 改备注
+/修改 上条 日期 2026-04-01
 ```
 
-### 3. 月报（每月 1 日自动推送）
+### 3. 预算管理
+
+```
+/预算 餐饮 2000   → 设置餐饮月度上限 ¥2000
+/预算             → 查看所有分类预算及使用情况
+```
+
+每次记账后自动检查：
+- 达到 80% → ⚠️ 推送提醒
+- 达到 100% → 🚨 超出提醒
+
+### 4. 查账命令
+
+```
+/查账            → 本月汇总（含vs上月对比）
+/查账 今天       → 今日明细
+/查账 最近       → 最近10条（带序号）
+/查账 最近20     → 最近20条
+/查账 上月       → 上月汇总
+/查账 3月        → 指定月份
+/查账 2025年3月  → 指定年月
+/帮助            → 命令列表
+```
+
+### 5. 月报（每月 1 日自动推送）
 
 ```
 📊 3月消费报告
@@ -340,13 +367,29 @@ Week 3:
 
 ---
 
-## NOT in scope（MVP）
+### 6. 周报（每周一 09:00 自动推送）
+
+上周支出按分类汇总，格式同月报简版。
+
+---
+
+## 定时任务
+
+| 任务 | 触发时间 | 说明 |
+|------|---------|------|
+| 月报 | 每月1日 09:00 | 上月完整报告 |
+| 周报 | 每周一 09:00 | 上周支出摘要 |
+
+---
+
+## NOT in scope
 
 - 自动抓取微信/支付宝账单（无官方 API，Phase 2 考虑）
 - 微信/支付宝 CSV 账单导入（Phase 2）
 - Web 管理界面（纯 Bot 够用）
 - 企业微信接入（架构支持扩展，按需添加）
-- 预算设置和超支提醒（先把记录做好）
+- CSV 数据导出
+- 分摊账单（AA 制）
 - 数据导出 PDF
 - iOS 快捷指令联动
 

@@ -76,14 +76,12 @@ async def send_monthly_report_to_all(session: AsyncSession, year: int, month: in
     )
     accounts = result.scalars().all()
 
+    from app.config import settings
     for account in accounts:
         report = await generate_monthly_report(session, account.user_id, year, month)
         await send_text(account.platform_user_id, report)
-
-    # 邮件发送（可选）
-    from app.config import settings
-    if settings.email_recipient_list:
-        _send_email_report(settings, year, month, report)
+        if settings.email_recipient_list:
+            _send_email_report(settings, year, month, report)
 
 
 def _send_email_report(settings, year: int, month: int, content: str) -> None:
