@@ -310,8 +310,8 @@ async def query_month_summary(
 
     expense_rows = [r for r in rows if r.total > 0]
     income_rows = [r for r in rows if r.total < 0]
-    expense_total = sum(r.total for r in expense_rows)
-    income_total = abs(sum(r.total for r in income_rows))
+    expense_total = float(sum(r.total for r in expense_rows))
+    income_total = float(abs(sum(r.total for r in income_rows)))
     balance = income_total - expense_total
 
     # 预算数据
@@ -460,8 +460,8 @@ async def query_week_summary(session: AsyncSession, user_id: int, week_start: da
 
     expense_rows = [r for r in rows if r.total > 0]
     income_rows = [r for r in rows if r.total < 0]
-    expense_total = sum(r.total for r in expense_rows)
-    income_total = abs(sum(r.total for r in income_rows))
+    expense_total = float(sum(r.total for r in expense_rows))
+    income_total = float(abs(sum(r.total for r in income_rows)))
 
     lines = [f"📊 周报 {week_start.month}/{week_start.day}～{week_end.month}/{week_end.day}"]
     lines.append(f"支出 ¥{expense_total:.2f}  收入 ¥{income_total:.2f}")
