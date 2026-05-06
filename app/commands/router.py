@@ -168,34 +168,36 @@ async def _handle_query(session: AsyncSession, open_id: str, args: str) -> str:
 
 
 async def _handle_record(session: AsyncSession, open_id: str, text: str) -> str:
-    parsed = await parse_expense(text)
-    if parsed is None:
+    items = await parse_expense(text)
+    if not items:
         return "没识别到金额，试试：\"星巴克35\" 或 \"地铁12\""
 
     user = await get_or_create_user(session, open_id)
-    await add_transaction(
-        session,
-        user_id=user.id,
-        amount=parsed.amount,
-        category=parsed.category,
-        note=parsed.note,
-        spent_at=parsed.date,
-    )
+    lines = []
+    alerts = []
 
-    emoji = CATEGORY_EMOJI.get(parsed.category, "✅")
-    sign = "+" if parsed.amount < 0 else "-"
-    reply = (
-        f"{emoji} 已记录\n"
-        f"{parsed.category}  {sign}¥{abs(parsed.amount):.2f}\n"
-        f"{parsed.date}  {parsed.note}"
-    )
+    for parsed in items:
+        await add_transaction(
+            session,
+            user_id=user.id,
+            amount=parsed.amount,
+            category=parsed.category,
+            note=parsed.note,
+            spent_at=parsed.date,
+        )
+        emoji = CATEGORY_EMOJI.get(parsed.category, "✅")
+        sign = "+" if parsed.amount < 0 else "-"
+        lines.append(f"{emoji} {parsed.category}  {sign}¥{abs(parsed.amount):.2f}  {parsed.note}")
 
-    # 记账后检查预算
-    if parsed.amount > 0:
-        alert = await check_budget_alert(session, user.id, parsed.category)
-        if alert:
-            reply += f"\n\n{alert}"
+        if parsed.amount > 0:
+            alert = await check_budget_alert(session, user.id, parsed.category)
+            if alert:
+                alerts.append(alert)
 
+    header = "已记录" if len(items) == 1 else f"已记录 {len(items)} 条"
+    reply = f"✅ {header}\n" + "\n".join(lines)
+    if alerts:
+        reply += "\n\n" + "\n".join(alerts)
     return reply
 
 
