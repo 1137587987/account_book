@@ -364,7 +364,7 @@ async def query_month_summary(
     if expense_rows:
         for r in expense_rows:
             emoji = CATEGORY_EMOJI.get(r.category, "📌")
-            pct = r.total / expense_total * 100 if expense_total else 0
+            pct = float(r.total) / expense_total * 100 if expense_total else 0
             cat_budget = budget_map.get(r.category)
             if cat_budget:
                 b_pct = float(r.total) / cat_budget * 100
@@ -468,7 +468,7 @@ async def query_week_summary(session: AsyncSession, user_id: int, week_start: da
     lines.append("─" * 24)
     for r in expense_rows:
         emoji = CATEGORY_EMOJI.get(r.category, "📌")
-        pct = r.total / expense_total * 100 if expense_total else 0
+        pct = float(r.total) / expense_total * 100 if expense_total else 0
         lines.append(f"{emoji} {r.category}  -¥{r.total:.2f}  {pct:.0f}%（{r.cnt}笔）")
     if income_rows:
         lines.append("")
